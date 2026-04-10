@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build: ./backend
+    container_name: daikin-backend
+    restart: unless-stopped
+    environment:
+      DAIKIN_HOST: ${DAIKIN_HOST}
+      TZ: ${TZ:-Pacific/Auckland}
+    volumes:
+      - daikin-data:/data   # schedules persisted here
+    networks:
+      - daikin-net
+
+  frontend:
+    build: ./frontend
+    container_name: daikin-frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"  # access at http://nas-ip:8080
+    depends_on:
+      - backend
+    networks:
+      - daikin-net
+
+volumes:
+  daikin-data:
+
+networks:
+  daikin-net:
