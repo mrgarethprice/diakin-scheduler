@@ -52,6 +52,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     if not needs_rebuild:
         return
 
+    action_expr = "COALESCE(action, 'setpoint')" if "action" in info else "'setpoint'"
+
     conn.execute("""
         CREATE TABLE schedules_new (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,15 +66,15 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             created_at  TEXT    DEFAULT (datetime('now'))
         )
     """)
-    conn.execute("""
+    conn.execute(f"""
         INSERT INTO schedules_new (id, time, days, action, temperature, mode, enabled, created_at)
         SELECT
             id,
             time,
             days,
-            CASE WHEN COALESCE(action, 'setpoint') = 'off' THEN 'off' ELSE 'setpoint' END,
-            CASE WHEN COALESCE(action, 'setpoint') = 'off' THEN NULL ELSE temperature END,
-            CASE WHEN COALESCE(action, 'setpoint') = 'off' THEN NULL ELSE mode END,
+            CASE WHEN {action_expr} = 'off' THEN 'off' ELSE 'setpoint' END,
+            CASE WHEN {action_expr} = 'off' THEN NULL ELSE temperature END,
+            CASE WHEN {action_expr} = 'off' THEN NULL ELSE mode END,
             enabled,
             created_at
         FROM schedules
