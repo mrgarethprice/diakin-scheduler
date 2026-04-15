@@ -25,3 +25,13 @@
   color: var(--neu-text-muted);
   font-weight: 400;
 }
+
+.action-button--danger {
+  color: var(--neu-text-muted);
+  font-weight: 400;
+}
+
+.action-button--danger:active {
+  color: #c0392b;
+  opacity: 1;
+}

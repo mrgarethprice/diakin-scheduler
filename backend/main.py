@@ -44,23 +44,18 @@ app.add_middleware(
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
-VALID_DAYS  = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
-VALID_MODES = {"heat", "cool", "fan", "auto", "dry"}
+VALID_MODES = {"heat", "cool", "fan", "auto"}
 VALID_ACTIONS = {"setpoint", "off"}
 
 
 class ScheduleIn(BaseModel):
     time:        str   = Field(pattern=r"^\d{2}:\d{2}$")
-    days:        list[str]
     action:      str   = "setpoint"  # "setpoint" | "off"
     temperature: Optional[float] = Field(default=None, ge=16, le=30)
     mode:        Optional[str]   = "heat"
     enabled:     bool  = True
 
     def validate_fields(self):
-        bad_days = set(self.days) - VALID_DAYS
-        if bad_days:
-            raise HTTPException(400, f"Unknown days: {bad_days}")
         if self.action not in VALID_ACTIONS:
             raise HTTPException(400, f"action must be one of {VALID_ACTIONS}")
         if self.action == "setpoint" and self.temperature is None:
@@ -71,7 +66,6 @@ class ScheduleIn(BaseModel):
 
 class SchedulePatch(BaseModel):
     time:        Optional[str]   = Field(default=None, pattern=r"^\d{2}:\d{2}$")
-    days:        Optional[list[str]] = None
     action:      Optional[str]   = None
     temperature: Optional[float] = Field(default=None, ge=16, le=30)
     mode:        Optional[str]   = None
@@ -113,7 +107,7 @@ def list_schedules():
 def create_schedule(body: ScheduleIn):
     body.validate_fields()
     new_id = database.create(
-        body.time, body.days, body.temperature, body.mode, body.action, body.enabled,
+        body.time, body.temperature, body.mode, body.action, body.enabled,
     )
     sched.reload_jobs()
     return {"id": new_id, **database.get_one(new_id)}
@@ -128,10 +122,6 @@ def update_schedule(schedule_id: int, body: SchedulePatch):
         raise HTTPException(400, f"action must be one of {VALID_ACTIONS}")
     if "mode" in updates and updates["mode"] not in VALID_MODES:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
-    if "days" in updates:
-        bad_days = set(updates["days"]) - VALID_DAYS
-        if bad_days:
-            raise HTTPException(400, f"Unknown days: {bad_days}")
     if updates:
         current = database.get_one(schedule_id)
         action = updates.get("action", current.get("action", "setpoint"))
@@ -152,6 +142,24 @@ def delete_schedule(schedule_id: int):
         raise HTTPException(404, "Schedule not found")
     database.delete(schedule_id)
     sched.reload_jobs()
+
+
+@app.get("/api/scheduler")
+def get_scheduler_state():
+    return {"paused": sched.is_paused()}
+
+
+class SchedulerIn(BaseModel):
+    paused: bool
+
+
+@app.post("/api/scheduler")
+def set_scheduler_state(body: SchedulerIn):
+    if body.paused:
+        sched.pause()
+    else:
+        sched.resume()
+    return {"paused": sched.is_paused()}
 
 
 @app.get("/api/health")

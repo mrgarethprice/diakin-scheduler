@@ -1,5 +1,6 @@
 """
 Schedule runner — rebuilds APScheduler jobs from the DB whenever schedules change.
+All schedules fire every day of the week.
 """
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -13,11 +14,6 @@ log = logging.getLogger(__name__)
 _scheduler = AsyncIOScheduler(timezone="Pacific/Auckland")
 _daikin: DaikinAirbase | None = None
 
-DAY_TO_DOW = {
-    "mon": "0", "tue": "1", "wed": "2", "thu": "3",
-    "fri": "4", "sat": "5", "sun": "6",
-}
-
 
 def init(daikin: DaikinAirbase, timezone: str = "Pacific/Auckland") -> None:
     global _daikin, _scheduler
@@ -25,30 +21,47 @@ def init(daikin: DaikinAirbase, timezone: str = "Pacific/Auckland") -> None:
     _scheduler = AsyncIOScheduler(timezone=timezone)
     reload_jobs()
     _scheduler.start()
-    log.info("Scheduler started (tz=%s)", timezone)
+    if database.get_setting("scheduler_paused") == "1":
+        _scheduler.pause()
+        log.info("Scheduler started paused (restored from DB)")
+    else:
+        log.info("Scheduler started (tz=%s)", timezone)
+
+
+def pause() -> None:
+    _scheduler.pause()
+    database.set_setting("scheduler_paused", "1")
+    log.info("Scheduler paused")
+
+
+def resume() -> None:
+    _scheduler.resume()
+    database.set_setting("scheduler_paused", "0")
+    log.info("Scheduler resumed")
+
+
+def is_paused() -> bool:
+    return _scheduler.state == 2  # STATE_PAUSED = 2 in APScheduler
 
 
 def reload_jobs() -> None:
     """Drop all jobs and rebuild from DB. Called after any schedule CRUD."""
     _scheduler.remove_all_jobs()
     for s in database.get_all():
-        if not s["enabled"] or not s["days"]:
+        if not s["enabled"]:
             continue
         hour, minute = s["time"].split(":")
-        dow = ",".join(DAY_TO_DOW[d] for d in s["days"] if d in DAY_TO_DOW)
-        if not dow:
-            continue
         _scheduler.add_job(
             _apply,
-            CronTrigger(hour=hour, minute=minute, day_of_week=dow),
+            CronTrigger(hour=hour, minute=minute),
             args=[s],
             id=f"sched_{s['id']}",
             replace_existing=True,
             misfire_grace_time=60,
         )
         log.info(
-            "Job %s: %s on %s → %s",
-            s["id"], s["time"], s["days"],
+            "Job %s: %s → %s",
+            s["id"], s["time"],
             "OFF" if s.get("action") == "off" else f"{s['temperature']:.1f}°C ({s['mode']})",
         )
     log.info("Loaded %d active job(s)", len(_scheduler.get_jobs()))

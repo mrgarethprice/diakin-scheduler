@@ -2,7 +2,6 @@
 SQLite persistence for schedules.
 Database lives at /data/scheduler.db — mapped to a volume on the NAS.
 """
-import json
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -23,7 +22,6 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS schedules (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 time        TEXT    NOT NULL,        -- "HH:MM"
-                days        TEXT    NOT NULL,        -- JSON array e.g. ["mon","tue"]
                 action      TEXT    NOT NULL DEFAULT 'setpoint',
                 temperature REAL,
                 mode        TEXT,
@@ -31,7 +29,31 @@ def init_db() -> None:
                 created_at  TEXT    DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
         _migrate_schema(conn)
+        conn.commit()
+
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
         conn.commit()
 
 
@@ -45,6 +67,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
 
     needs_rebuild = (
         "label" in info
+        or "days" in info
         or "action" not in info
         or ("temperature" in info and info["temperature"]["notnull"] == 1)
         or ("mode" in info and info["mode"]["notnull"] == 1)
@@ -64,7 +87,6 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE schedules_new (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             time        TEXT    NOT NULL,
-            days        TEXT    NOT NULL,
             action      TEXT    NOT NULL DEFAULT 'setpoint',
             temperature REAL,
             mode        TEXT,
@@ -73,11 +95,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         )
     """)
     conn.execute(f"""
-        INSERT INTO schedules_new (id, time, days, action, temperature, mode, enabled, created_at)
+        INSERT INTO schedules_new (id, time, action, temperature, mode, enabled, created_at)
         SELECT
             id,
             time,
-            days,
             CASE WHEN {action_expr} = 'off' THEN 'off' ELSE 'setpoint' END,
             CASE WHEN {action_expr} = 'off' THEN NULL ELSE {temperature_expr} END,
             CASE WHEN {action_expr} = 'off' THEN NULL ELSE {mode_expr} END,
@@ -91,7 +112,6 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
     d = dict(row)
-    d["days"]    = json.loads(d["days"])
     d["enabled"] = bool(d["enabled"])
     d.setdefault("action", "setpoint")
     return d
@@ -113,15 +133,15 @@ def get_one(schedule_id: int) -> dict | None:
     return _row_to_dict(row) if row else None
 
 
-def create(time: str, days: list, temperature: float | None,
+def create(time: str, temperature: float | None,
            mode: str | None, action: str, enabled: bool) -> int:
     db_temp = None if action == "off" else temperature
     db_mode = None if action == "off" else mode
     with _connect() as conn:
         cur = conn.execute(
-            """INSERT INTO schedules (time, days, action, temperature, mode, enabled)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (time, json.dumps(days), action, db_temp, db_mode, int(enabled)),
+            """INSERT INTO schedules (time, action, temperature, mode, enabled)
+               VALUES (?, ?, ?, ?, ?)""",
+            (time, action, db_temp, db_mode, int(enabled)),
         )
         conn.commit()
         return cur.lastrowid
@@ -130,8 +150,6 @@ def create(time: str, days: list, temperature: float | None,
 def update(schedule_id: int, **fields: Any) -> None:
     if not fields:
         return
-    if "days" in fields:
-        fields["days"] = json.dumps(fields["days"])
     if "enabled" in fields:
         fields["enabled"] = int(fields["enabled"])
     sets   = ", ".join(f"{k} = ?" for k in fields)

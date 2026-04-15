@@ -27,38 +27,10 @@ function api(path, opts = {}) {
 }
 
 const MOCK_SCHEDULES = [
-  {
-    id: 1,
-    time: "05:30",
-    temperature: 24,
-    mode: "heat",
-    action: "setpoint",
-    enabled: true,
-  },
-  {
-    id: 2,
-    time: "08:30",
-    temperature: null,
-    mode: null,
-    action: "off",
-    enabled: true,
-  },
-  {
-    id: 3,
-    time: "16:00",
-    temperature: 24,
-    mode: "cool",
-    action: "setpoint",
-    enabled: true,
-  },
-  {
-    id: 4,
-    time: "23:00",
-    temperature: 16,
-    mode: "heat",
-    action: "setpoint",
-    enabled: true,
-  },
+  { id: 1, time: "05:30", temperature: 24, mode: "heat", action: "setpoint", enabled: true },
+  { id: 2, time: "08:30", temperature: null, mode: null, action: "off", enabled: true },
+  { id: 3, time: "16:00", temperature: 24, mode: "cool", action: "setpoint", enabled: true },
+  { id: 4, time: "23:00", temperature: 16, mode: "heat", action: "setpoint", enabled: true },
 ];
 
 function formatTime12(time24) {
@@ -278,11 +250,17 @@ function ScheduleScreen({
 
 // ── Edit / Add Modal ─────────────────────────────────────────────────────────
 
-function EditModal({ item, onSave, onCancel }) {
+function EditModal({ item, onSave, onCancel, onRemove }) {
+  // "power" slot on the dial represents action:"off"; all other slots are modes
   const [time, setTime] = useState(item?.time || "16:00");
   const [temp, setTemp] = useState(item?.temperature ?? 22);
-  const [mode, setMode] = useState(item?.mode || "cool");
+  const [dialValue, setDialValue] = useState(
+    item?.action === "off" ? "power" : (item?.mode || "cool"),
+  );
   const [exiting, setExiting] = useState(false);
+
+  const isOff = dialValue === "power";
+  const tempDisabled = isOff || dialValue === "fan";
 
   const dismiss = (callback) => {
     setExiting(true);
@@ -294,9 +272,9 @@ function EditModal({ item, onSave, onCancel }) {
       onSave({
         ...(item || {}),
         time,
-        temperature: temp,
-        mode,
-        action: "setpoint",
+        temperature: tempDisabled ? null : temp,
+        mode: isOff ? null : dialValue,
+        action: isOff ? "off" : "setpoint",
         enabled: true,
       })
     );
@@ -315,11 +293,11 @@ function EditModal({ item, onSave, onCancel }) {
               onChange={(e) => setTime(e.target.value)}
             />
           </label>
-          <span className="edit-sheet__temp">{temp}°</span>
+          {!tempDisabled && <span className="edit-sheet__temp">{temp}°</span>}
         </div>
 
         <div className="edit-sheet__body">
-          <ModeDial value={mode} onChange={(id) => setMode(id)} />
+          <ModeDial value={dialValue} onChange={(id) => setDialValue(id)} />
           <NeuSlider
             value={temp}
             min={16}
@@ -328,6 +306,7 @@ function EditModal({ item, onSave, onCancel }) {
             onChange={setTemp}
             trackHeight={200}
             showButtons
+            disabled={tempDisabled}
             aria-label="Temperature"
           />
         </div>
@@ -340,6 +319,15 @@ function EditModal({ item, onSave, onCancel }) {
           >
             Cancel
           </ActionButton>
+          {item?.id && (
+            <ActionButton
+              className="edit-sheet__remove"
+              variant="danger"
+              onClick={() => dismiss(onRemove)}
+            >
+              Remove
+            </ActionButton>
+          )}
           <ActionButton
             className="edit-sheet__save"
             variant="primary"
@@ -386,12 +374,22 @@ export default function App() {
     }
   }, []);
 
+  const loadPaused = useCallback(async () => {
+    try {
+      const data = await api("/api/scheduler");
+      setPaused(data.paused);
+    } catch {
+      // keep local state
+    }
+  }, []);
+
   useEffect(() => {
     loadStatus();
     loadSchedules();
+    loadPaused();
     const t = setInterval(loadStatus, 30_000);
     return () => clearInterval(t);
-  }, [loadStatus, loadSchedules]);
+  }, [loadStatus, loadSchedules, loadPaused]);
 
   const togglePower = async (next) => {
     setLocalPower(next);
@@ -415,6 +413,18 @@ export default function App() {
         body: JSON.stringify(body),
       });
       await loadStatus();
+    } catch {
+      // keep local state
+    }
+  };
+
+  const togglePause = async (next) => {
+    setPaused(next);
+    try {
+      await api("/api/scheduler", {
+        method: "POST",
+        body: JSON.stringify({ paused: next }),
+      });
     } catch {
       // keep local state
     }
@@ -453,6 +463,16 @@ export default function App() {
     setEditItem(null);
   };
 
+  const removeScheduleItem = async (id) => {
+    setSchedules((prev) => prev.filter((s) => s.id !== id));
+    setEditItem(null);
+    try {
+      await api(`/api/schedules/${id}`, { method: "DELETE" });
+    } catch {
+      // keep local removal
+    }
+  };
+
   const nextSchedule = getNextSchedule(schedules);
   const roomTemp = status?.indoor_temp ?? 23;
   const setTemp = status?.set_temp ?? localTemp;
@@ -482,13 +502,14 @@ export default function App() {
             onEditItem={(item) => setEditItem(item)}
             onAddItem={() => setEditItem("new")}
             paused={paused}
-            onTogglePause={setPaused}
+            onTogglePause={togglePause}
           />
           {editItem && (
             <EditModal
               item={editItem === "new" ? null : editItem}
               onSave={saveScheduleItem}
               onCancel={() => setEditItem(null)}
+              onRemove={editItem !== "new" ? () => removeScheduleItem(editItem.id) : undefined}
             />
           )}
         </div>

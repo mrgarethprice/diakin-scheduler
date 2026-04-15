@@ -11,6 +11,7 @@ export default function NeuSlider({
   onChange,
   trackHeight = 280,
   showButtons = false,
+  disabled = false,
   className = "",
   "aria-label": ariaLabel,
 }) {
@@ -75,7 +76,11 @@ export default function NeuSlider({
   return (
     <div
       className={`neu-slider ${className}`.trim()}
-      style={{ "--ns-track-height": `${trackHeight}px` }}
+      style={{
+        "--ns-track-height": `${trackHeight}px`,
+        pointerEvents: disabled ? "none" : undefined,
+      }}
+      aria-disabled={disabled || undefined}
     >
       {showButtons && (
         <button
@@ -83,6 +88,7 @@ export default function NeuSlider({
           className="neu-slider__btn"
           onClick={() => onChange?.(clamp(value + step))}
           aria-label="Increase"
+          style={{ visibility: disabled ? "hidden" : undefined }}
         >
           <i className="ri-add-line" aria-hidden />
         </button>
@@ -121,6 +127,7 @@ export default function NeuSlider({
           className="neu-slider__btn"
           onClick={() => onChange?.(clamp(value - step))}
           aria-label="Decrease"
+          style={{ visibility: disabled ? "hidden" : undefined }}
         >
           <i className="ri-subtract-line" aria-hidden />
         </button>
