@@ -1,11 +1,11 @@
 {
   "name": "Daikin Scheduler",
-  "short_name": "Heat",
+  "short_name": "Dieter",
   "description": "Schedule your Daikin heat pump",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#0f0f0f",
+  "background_color": "#f7f7f7",
+  "theme_color": "#f7f7f7",
   "orientation": "portrait",
   "icons": [
     {

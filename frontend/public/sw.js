@@ -1,5 +1,5 @@
 /* daikin-scheduler service worker */
-const CACHE   = 'daikin-v1';
+const CACHE   = 'daikin-v2';
 const SHELL   = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
