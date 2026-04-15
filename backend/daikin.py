@@ -45,21 +45,27 @@ class DaikinAirbase:
         power: str | None = None,
         mode: str | None = None,  # "heat" | "cool" | "fan" | "auto" | "dry"
         temp: float | None = None,
-        fan: str = "A",           # A = auto
+        fan: str | None = None,
     ) -> dict:
         """
         Fetch current state, overlay any provided values, then send.
-        This prevents accidentally resetting fields we don't want to change.
+        The Airbase adapter requires ALL control parameters to be echoed
+        back — omitting fields like f_dir causes a silent rejection.
         """
         current = await self.get_control_info()
 
-        params = {
-            "pow":    power if power is not None else current.get("pow", "1"),
-            "mode":   MODE_TO_CODE.get(mode, mode) if mode else current.get("mode", "1"),
-            "stemp":  str(temp) if temp is not None else current.get("stemp", "20"),
-            "f_rate": fan,
-            "shum":   "0",
-        }
+        # Start from the full current state so every parameter the unit
+        # expects is present, then overlay only the values we want to change.
+        params = {k: v for k, v in current.items() if k != "ret"}
+
+        if power is not None:
+            params["pow"] = power
+        if mode is not None:
+            params["mode"] = MODE_TO_CODE.get(mode, mode)
+        if temp is not None:
+            params["stemp"] = str(temp)
+        if fan is not None:
+            params["f_rate"] = fan
 
         log.info("Setting Daikin: %s", params)
 
