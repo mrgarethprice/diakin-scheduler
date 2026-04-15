@@ -69,11 +69,24 @@ input {
   margin: 0 auto;
   position: relative;
   perspective: 1200px;
+  -webkit-perspective: 1200px;
+  /* Clip here, outside the preserve-3d chain, so it doesn't break
+     backface-visibility on iOS Safari */
+  overflow: hidden;
   @media (min-width: 600px) {
     width: 400px;
     min-height: 560px;
     max-height: 90dvh;
     margin: 0 auto;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow:
+      0 60px 80px 0 rgba(0, 0, 0, 0.07),
+      0 25.067px 33.422px 0 rgba(0, 0, 0, 0.05),
+      0 13.402px 17.869px 0 rgba(0, 0, 0, 0.04),
+      0 7.513px 10.017px 0 rgba(0, 0, 0, 0.04),
+      0 3.99px 5.32px 0 rgba(0, 0, 0, 0.03),
+      0 1.66px 2.214px 0 rgba(0, 0, 0, 0.02);
   }
 }
 
@@ -84,24 +97,18 @@ input {
   width: 100%;
   min-height: 100dvh;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  -webkit-transition: -webkit-transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   @media (min-width: 600px) {
     min-height: 560px;
     max-height: 90dvh;
-    border-radius: 40px;
-    box-shadow:
-      0 60px 80px 0 rgba(0, 0, 0, 0.07),
-      0 25.067px 33.422px 0 rgba(0, 0, 0, 0.05),
-      0 13.402px 17.869px 0 rgba(0, 0, 0, 0.04),
-      0 7.513px 10.017px 0 rgba(0, 0, 0, 0.04),
-      0 3.99px 5.32px 0 rgba(0, 0, 0, 0.03),
-      0 1.66px 2.214px 0 rgba(0, 0, 0, 0.02);
-
   }
 }
 
 .card-flipper--flipped {
   transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
 }
 
 .card-face {
@@ -112,13 +119,18 @@ input {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   background: var(--neu-surface);
-  overflow: hidden;
-  @media (min-width: 600px) {
-    border-radius: 40px;
-  }
+  /* overflow: hidden is intentionally NOT set here — on iOS Safari,
+     overflow:hidden on a child of a preserve-3d container breaks
+     backface-visibility and causes front-face elements to bleed through.
+     Clipping is handled by the .app ancestor instead. */
 }
 
 .card-face--front {
+  /* Explicit rotateY(0) forces this face into the 3D compositing layer,
+     which is required for backface-visibility to work on iOS Safari */
+  transform: rotateY(0deg);
+  -webkit-transform: rotateY(0deg);
+  pointer-events: auto;
   @media (min-width: 600px) {
     &::after {
       content: "";
@@ -144,6 +156,16 @@ input {
 
 .card-face--back {
   transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+  pointer-events: none;
+}
+
+.card-flipper--flipped .card-face--front {
+  pointer-events: none;
+}
+
+.card-flipper--flipped .card-face--back {
+  pointer-events: auto;
 }
 
 /* ── Home screen ───────────────────────────────────────────────────────────── */
