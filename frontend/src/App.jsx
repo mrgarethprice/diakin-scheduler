@@ -474,9 +474,9 @@ export default function App() {
   };
 
   const nextSchedule = getNextSchedule(schedules);
-  const roomTemp = status?.indoor_temp ?? 23;
-  const setTemp = status?.set_temp ?? localTemp;
-  const isOn = status?.power ?? localPower;
+  const roomTemp = status?.indoor_temp ?? null;
+  const setTemp = localTemp;
+  const isOn = localPower;
 
   const flipped = screen === "schedule";
 
