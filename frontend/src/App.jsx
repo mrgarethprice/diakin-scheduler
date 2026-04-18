@@ -703,9 +703,15 @@ export default function App() {
     lastActionRef.current = Date.now();
     setLocalZones(zones);
     try {
+      let payload = zones;
+      if (!payload) {
+        payload = Array(8).fill(0);
+        const count = zoneInfo?.count ?? 8;
+        for (let i = 0; i < count; i++) payload[i] = 1;
+      }
       await api("/api/zones", {
         method: "POST",
-        body: JSON.stringify({ zones: zones || Array(8).fill(1) }),
+        body: JSON.stringify({ zones: payload }),
       });
     } catch {
       // keep local state

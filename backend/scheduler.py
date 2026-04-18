@@ -86,12 +86,12 @@ async def _apply(schedule: dict) -> None:
                 temp=schedule["temperature"],
                 fan=schedule.get("fan"),
             )
-            # Zone persistence: reset to all zones unless schedule specifies
             zones_raw = schedule.get("zones")
             if zones_raw:
                 zones = json.loads(zones_raw) if isinstance(zones_raw, str) else zones_raw
             else:
-                zones = [1] * 8
+                count = await _daikin.get_zone_count() or 8
+                zones = [1] * count + [0] * (8 - count)
             await _daikin.set_zone_setting(zones)
     except Exception as exc:
         log.error("Failed to apply schedule %s: %s", schedule["id"], exc)

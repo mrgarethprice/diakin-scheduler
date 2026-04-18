@@ -21,6 +21,7 @@ CODE_TO_MODE = {v: k for k, v in MODE_TO_CODE.items()}
 class DaikinAirbase:
     def __init__(self, host: str):
         self.base = f"http://{host}/skyfi"
+        self._zone_count: int | None = None
 
     def _parse(self, text: str) -> dict:
         """Parse Daikin's CSV key=value response format."""
@@ -51,6 +52,9 @@ class DaikinAirbase:
         Set zone on/off state. Always sends all 8 slots.
         Zone names are echoed back unchanged from get_zone_setting.
         URL is built manually to avoid double-encoding the percent-hex values.
+
+        Slots beyond the configured zone count are forced to 0 — the Daikin
+        unit rejects requests that try to enable unconfigured zones.
         """
         current = await self.get_zone_setting()
         zone_name = current.get("zone_name", "")
@@ -59,6 +63,11 @@ class DaikinAirbase:
         while len(full) < 8:
             full.append(0)
         full = full[:8]
+
+        count = await self.get_zone_count()
+        if count is not None:
+            for i in range(count, 8):
+                full[i] = 0
 
         onoff_str = "%3b".join(str(x) for x in full)
         url = (
@@ -151,6 +160,21 @@ class DaikinAirbase:
             return {"connected": False, "error": str(exc)}
 
 
+    async def get_zone_count(self) -> int | None:
+        """Return the configured zone count, fetching from hardware if needed."""
+        if self._zone_count is not None:
+            return self._zone_count
+        try:
+            model = await self.get_model_info()
+            count = int(model.get("en_zone", "0"))
+            count = min(max(count, 0), 8)
+            if count > 0:
+                self._zone_count = count
+            return count if count > 0 else None
+        except Exception as exc:
+            log.warning("Failed to fetch zone count: %s", exc)
+            return None
+
     async def capabilities(self) -> dict:
         """Discover fan speeds and zone configuration from hardware."""
         model = await self.get_model_info()
@@ -194,6 +218,7 @@ class DaikinAirbase:
 
                 zone_count = int(model.get("en_zone", "0"))
                 zone_count = min(max(zone_count, 0), 8)
+                self._zone_count = zone_count
 
                 if zone_count > 0:
                     names = [n.strip() for n in all_names[:zone_count]]
