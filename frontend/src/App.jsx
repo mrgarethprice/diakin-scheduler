@@ -449,6 +449,15 @@ function EditModal({ item, onSave, onCancel, onRemove, fanSpeeds, zoneInfo }) {
     return typeof item.zones === "string" ? JSON.parse(item.zones) : item.zones;
   });
   const [exiting, setExiting] = useState(false);
+  const timeInputRef = useRef(null);
+
+  const handleTimeClick = () => {
+    try {
+      timeInputRef.current?.showPicker();
+    } catch {
+      timeInputRef.current?.focus();
+    }
+  };
 
   const isOff = dialValue === "power";
   const tempDisabled = isOff || dialValue === "fan";
@@ -498,14 +507,15 @@ function EditModal({ item, onSave, onCancel, onRemove, fanSpeeds, zoneInfo }) {
             )}
           </div>
           <div className="edit-sheet__header-right">
-            <label className="time-input-wrapper">
+            <div className="time-input-wrapper" onClick={handleTimeClick}>
               <span className="edit-sheet__time">{formatTime12(time)}</span>
               <input
+                ref={timeInputRef}
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
               />
-            </label>
+            </div>
             {!tempDisabled && <span className="edit-sheet__temp">{temp}°</span>}
           </div>
         </div>
