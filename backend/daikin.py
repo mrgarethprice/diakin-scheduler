@@ -192,27 +192,17 @@ class DaikinAirbase:
                 onoff_raw = unquote(zs.get("zone_onoff", ""))
                 all_onoff = [int(x) for x in onoff_raw.split(";") if x]
 
-                # en_zone should be the configured zone count, but some
-                # firmware reports 0 or the total slot count (8). Infer
-                # from zone names: unconfigured slots use default names
-                # like "Zone5", "Zone6", etc. Prefer the inferred count
-                # when custom names exist; fall back to en_zone otherwise
-                # (covers units where all zones keep default names).
-                reported = int(model.get("en_zone", "0"))
-                inferred = 0
-                for i, name in enumerate(all_names[:8]):
-                    if name and name != f"Zone{i + 1}":
-                        inferred = i + 1
-                zone_count = inferred if inferred > 0 else reported
-                zone_count = min(zone_count, 8)
+                zone_count = int(model.get("en_zone", "0"))
+                zone_count = min(max(zone_count, 0), 8)
 
                 if zone_count > 0:
+                    names = [n.strip() for n in all_names[:zone_count]]
                     zone_info = {
                         "count": zone_count,
-                        "names": all_names[:zone_count],
+                        "names": names,
                         "onoff": all_onoff[:zone_count],
                     }
-                    log.info("Zones discovered: count=%d names=%s", zone_count, zone_info["names"])
+                    log.info("Zones discovered: count=%d names=%s", zone_count, names)
         except Exception as exc:
             log.warning("Zone discovery failed: %s", exc)
 
