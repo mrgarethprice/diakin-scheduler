@@ -154,9 +154,15 @@ class DaikinAirbase:
     async def capabilities(self) -> dict:
         """Discover fan speeds and zone configuration from hardware."""
         model = await self.get_model_info()
+        log.info("Raw model_info: %s", model)
 
         # ── Fan speeds ──
+        # Some firmware reports en_frate as boolean (1 = supported) with the
+        # actual step count in frate_steps. Fall back to frate_steps when
+        # en_frate looks like a boolean rather than a count.
         steps = int(model.get("en_frate", "0"))
+        if steps <= 1:
+            steps = int(model.get("frate_steps", str(steps)))
         auto = model.get("en_frate_auto") == "1"
 
         AIRBASE_SPEEDS = [
@@ -177,19 +183,36 @@ class DaikinAirbase:
         zone_info = None
         try:
             basic = await self.get_basic_info()
+            log.info("Raw basic_info: %s", basic)
             if basic.get("en_setzone") == "1":
-                zone_count = int(model.get("en_zone", "0"))
+                zs = await self.get_zone_setting()
+                log.info("Raw zone_setting: %s", zs)
+                names_raw = unquote(zs.get("zone_name", ""))
+                all_names = names_raw.split(";")
+                onoff_raw = unquote(zs.get("zone_onoff", ""))
+                all_onoff = [int(x) for x in onoff_raw.split(";") if x]
+
+                # en_zone should be the configured zone count, but some
+                # firmware reports 0 or the total slot count (8). Infer
+                # from zone names: unconfigured slots use default names
+                # like "Zone5", "Zone6", etc. Prefer the inferred count
+                # when custom names exist; fall back to en_zone otherwise
+                # (covers units where all zones keep default names).
+                reported = int(model.get("en_zone", "0"))
+                inferred = 0
+                for i, name in enumerate(all_names[:8]):
+                    if name and name != f"Zone{i + 1}":
+                        inferred = i + 1
+                zone_count = inferred if inferred > 0 else reported
+                zone_count = min(zone_count, 8)
+
                 if zone_count > 0:
-                    zs = await self.get_zone_setting()
-                    names_raw = unquote(zs.get("zone_name", ""))
-                    names = names_raw.split(";")[:zone_count]
-                    onoff_raw = unquote(zs.get("zone_onoff", ""))
-                    onoff = [int(x) for x in onoff_raw.split(";") if x][:zone_count]
                     zone_info = {
                         "count": zone_count,
-                        "names": names,
-                        "onoff": onoff,
+                        "names": all_names[:zone_count],
+                        "onoff": all_onoff[:zone_count],
                     }
+                    log.info("Zones discovered: count=%d names=%s", zone_count, zone_info["names"])
         except Exception as exc:
             log.warning("Zone discovery failed: %s", exc)
 

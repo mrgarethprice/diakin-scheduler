@@ -339,8 +339,6 @@ input {
   position: relative;
   display: inline-flex;
   align-items: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
   color: var(--neu-text-muted);
   font-size: 20px;
 }
@@ -349,18 +347,61 @@ input {
   color: var(--neu-accent);
 }
 
-.zone-select__icon {
-  font-size: 20px;
+.zone-select__trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.zone-select select {
-  position: absolute;
+.zone-select__backdrop {
+  position: fixed;
   inset: 0;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
+  z-index: 200;
+}
+
+.zone-select__panel {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 201;
+  background: var(--neu-surface);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+}
+
+.zone-select__panel--up {
+  bottom: calc(100% + 8px);
+}
+
+.zone-select__panel--down {
+  top: calc(100% + 8px);
+}
+
+.zone-select__option {
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  font-size: 15px;
+  text-align: left;
+  border-radius: 8px;
+  color: var(--neu-text-muted);
   cursor: pointer;
-  font-size: var(--font-size-md);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.zone-select__option--on {
+  color: var(--neu-accent);
+  font-weight: 600;
 }
 
 /* ── Schedule screen ───────────────────────────────────────────────────────── */

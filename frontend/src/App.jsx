@@ -104,20 +104,16 @@ function isAllZones(onoff, count) {
   return true;
 }
 
-function ZoneSelect({ zones, zoneInfo, onChange, className = "", accent = false }) {
+function ZoneSelect({ zones, zoneInfo, onChange, className = "", accent = false, direction = "up" }) {
+  const [open, setOpen] = useState(false);
   if (!zoneInfo) return null;
   const { count, names } = zoneInfo;
-  const current = zones || Array(count).fill(1);
-  const selectedIndices = current.slice(0, count)
-    .map((v, i) => (v ? String(i) : null))
-    .filter((v) => v !== null);
+  const current = zones || Array(8).fill(1);
 
-  const handleChange = (e) => {
-    const selected = new Set(
-      Array.from(e.target.selectedOptions, (o) => Number(o.value)),
-    );
-    const next = Array(8).fill(0);
-    for (let i = 0; i < count; i++) next[i] = selected.has(i) ? 1 : 0;
+  const toggle = (idx) => {
+    const next = [...current];
+    while (next.length < 8) next.push(0);
+    next[idx] = next[idx] ? 0 : 1;
     if (isAllZones(next, count)) {
       onChange(null);
     } else {
@@ -125,19 +121,35 @@ function ZoneSelect({ zones, zoneInfo, onChange, className = "", accent = false 
     }
   };
 
+  const panelClass = `zone-select__panel zone-select__panel--${direction}`;
+
   return (
-    <label className={`zone-select ${accent ? "zone-select--accent" : ""} ${className}`.trim()}>
-      <i className="ri-layout-grid-line zone-select__icon" />
-      <select
-        multiple
-        value={selectedIndices}
-        onChange={handleChange}
+    <div className={`zone-select ${accent ? "zone-select--accent" : ""} ${className}`.trim()}>
+      <button
+        type="button"
+        className="zone-select__trigger"
+        onClick={() => setOpen(!open)}
       >
-        {names.map((name, i) => (
-          <option key={i} value={String(i)}>{name}</option>
-        ))}
-      </select>
-    </label>
+        <i className="ri-layout-grid-line" />
+      </button>
+      {open && (
+        <>
+          <div className="zone-select__backdrop" onClick={() => setOpen(false)} />
+          <div className={panelClass}>
+            {names.slice(0, count).map((name, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`zone-select__option ${current[i] ? "zone-select__option--on" : ""}`}
+                onClick={() => toggle(i)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -441,6 +453,7 @@ function EditModal({ item, onSave, onCancel, onRemove, fanSpeeds, zoneInfo }) {
                 zoneInfo={zoneInfo}
                 onChange={setZones}
                 accent={!!zones && !isAllZones(zones, zoneInfo.count)}
+                direction="down"
               />
             )}
           </div>
