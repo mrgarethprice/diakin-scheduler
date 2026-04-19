@@ -33,6 +33,7 @@
 
 html {
   background: var(--neu-surface);
+  overflow: hidden;
 }
 
 html * {
@@ -43,8 +44,9 @@ body {
   font-family: var(--font-sans);
   background: var(--neu-surface);
   color: var(--neu-text);
-  min-height: 100dvh;
+  min-height: calc(100dvh + var(--safe-top));
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
   overscroll-behavior: none;
   @media (min-width: 600px) {
     display: grid;
@@ -90,7 +92,7 @@ input {
 /* ── App shell ─────────────────────────────────────────────────────────────── */
 
 .app {
-  min-height: 100dvh;
+  min-height: calc(100dvh + var(--safe-top));
   margin: 0 auto;
   position: relative;
   perspective: 1200px;
@@ -123,7 +125,7 @@ input {
 .card-flipper {
   position: relative;
   width: 100%;
-  min-height: 100dvh;
+  min-height: calc(100dvh + var(--safe-top));
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
