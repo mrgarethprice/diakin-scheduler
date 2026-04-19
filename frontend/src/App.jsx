@@ -451,6 +451,14 @@ function EditModal({ item, onSave, onCancel, onRemove, fanSpeeds, zoneInfo }) {
   const [exiting, setExiting] = useState(false);
   const timeInputRef = useRef(null);
 
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", "#f9601b");
+    return () => {
+      if (meta) meta.setAttribute("content", "#f7f7f7");
+    };
+  }, []);
+
   const handleTimeClick = () => {
     try {
       timeInputRef.current?.showPicker();

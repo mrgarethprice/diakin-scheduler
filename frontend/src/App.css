@@ -82,7 +82,9 @@ input {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── App shell ─────────────────────────────────────────────────────────────── */
@@ -209,7 +211,7 @@ input {
 .home__next-schedule {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   font-size: var(--font-size-md);
   color: var(--neu-text-muted);
   cursor: pointer;
@@ -447,7 +449,7 @@ input {
 .schedule-item__left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .schedule-item__right {
