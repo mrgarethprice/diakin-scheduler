@@ -1,4 +1,4 @@
-# daikin-scheduler
+# Dieter
 
 A self-hosted web app for scheduling **set temperature** and **power off** actions on a **Daikin FDYA / BRP15B61 Airbase** heat pump. Runs on a Synology NAS (or any Docker host) and installs as a home screen app on iOS and Android.
 
