@@ -200,6 +200,8 @@ class DaikinAirbase:
             speeds = list(AIRBASE_SPEEDS)
         else:
             speeds = []
+        if speeds:
+            speeds.insert(0, {"value": "B", "label": "Quiet"})
         if auto:
             speeds.append({"value": "A", "label": "Auto"})
 
