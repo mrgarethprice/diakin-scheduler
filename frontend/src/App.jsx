@@ -15,7 +15,7 @@ const MODE_ICONS = {
   auto: "ri-arrow-up-down-line",
 };
 
-const FAN_LABEL_MAP = { B: "Q", "1": "1", "3": "2", "5": "3", A: "A" };
+const FAN_LABEL_MAP = { "1": "1", "3": "2", "5": "3", A: "A" };
 
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
