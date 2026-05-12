@@ -1,5 +1,5 @@
 """
-daikin-scheduler — FastAPI backend
+Dieter — FastAPI backend
 """
 import os
 import json
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     sched.get_scheduler().shutdown(wait=False)
 
 
-app = FastAPI(title="Daikin Scheduler", lifespan=lifespan)
+app = FastAPI(title="Dieter", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

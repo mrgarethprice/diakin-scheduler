@@ -34,8 +34,8 @@ Open **Package Center** → search **Container Manager** → Install.
 ### 3. Clone and configure
 
 ```bash
-git clone https://github.com/yourname/daikin-scheduler.git
-cd daikin-scheduler
+git clone https://github.com/yourname/dieter.git
+cd dieter
 cp .env.example .env
 nano .env          # fill in DAIKIN_HOST, TZ, PORT
 ```
@@ -53,7 +53,7 @@ PORT=8080
 SSH into your NAS and run:
 
 ```bash
-cd /volume1/docker/daikin-scheduler   # or wherever you cloned it
+cd /volume1/docker/dieter   # or wherever you cloned it
 docker compose up -d --build
 ```
 
@@ -77,7 +77,7 @@ Visit `http://<nas-ip>:8080` in your browser.
 ## Updating
 
 ```bash
-cd /volume1/docker/daikin-scheduler
+cd /volume1/docker/dieter
 git pull
 docker compose up -d --build
 ```
