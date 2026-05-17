@@ -1,169 +1,115 @@
 # Dieter
 
-A self-hosted web app for scheduling **set temperature** and **power off** actions on a **Daikin FDYA / BRP15B61 Airbase** heat pump. Runs on a Synology NAS (or any Docker host) and installs as a home screen app on iOS and Android.
+Named after [Dieter Rams](https://en.wikipedia.org/wiki/Dieter_Rams) — the patron saint of knobs and buttons — Dieter is a self-hosted scheduler for **Daikin FDYA / BRP15B61 Airbase** heat pumps. Set it and forget it: tell Dieter when to heat, when to cool, and when to shut up.
 
-![Dark UI showing temperature status and schedule list](screenshot.png)
+It‘s a PWA, so it installs on your phone’s home screen and behaves like a native app.
 
-## Features
+## Who is this for?
 
-- **Live status** — current set temp, room temp, outdoor temp, mode
-- **Power toggle** — turn the unit on/off from the home screen
-- **Time-based scheduling** — add as many schedules as you want, per day of week
-- **Off schedules** — create "power off" events that do not require a temperature
-- **PWA** — install on iOS / Android home screen; works like a native app
-- **Local-only** — communicates directly with the BRP15B61 on your LAN; no cloud required
+People who own a Daikin BRP15B61 and are comfortable with the command line. You don‘t need to be a developer, but you do need to be able to SSH into a machine, edit a text file, and run Docker.
+
+## What it does
+
+- Runs time-based schedules — as many as you like, including ’off‘ schedules
+- Schedules can include changes to fan speed and zone
+- Shows live status (set temp, room temp, mode) with full manual control
+- Allows pausing of scheduled changes if you’re away
+- Talks directly to the BRP15B61 on your local network — no Daikin cloud, no accounts, no subscriptions
+- Pleases your eyes and brain with easy to grok and use controls
 
 ## Requirements
 
-| Item | Detail |
-|------|--------|
-| Heat pump controller | Daikin BRP15B61 Airbase |
-| NAS | Synology DS218+ or any x86/x64 Synology with Docker support |
-| Router | Ability to set a static DHCP lease for the Daikin unit |
+- **Heat pump controller** — Daikin BRP15B61 Airbase
+- **Docker host** — any machine that can run Docker: a home server, NAS, old laptop, Raspberry Pi
+- **Router** — ability to assign a static IP to the Daikin unit
+
+
+### Home servers
+
+Dieter needs somewhere to run continuously so it can fire schedules at the right time. A Docker-capable machine that stays on is ideal — a Synology or similar NAS is perfect, but so is any always-on Linux box. If you don’t have one, a Raspberry Pi 4 running Docker is cheap and quiet.
+
+
+## Current gaps
+
+- Different scheduling per day
+- No dry mode (who uses that?)
+- Doesn't support setups with separate per-zone temperatures
+- Zone and fan speed discovery and display might be glitchy — only tested on one setup
 
 ## Setup
 
-### 1. Static IP for the Daikin unit
+### 1. Give the Daikin unit a static IP
 
-Log in to your router and assign a **static DHCP lease** to the BRP15B61's MAC address. Note the IP address — you'll need it in step 3.
+Log into your router and assign a static DHCP lease to the BRP15B61‘s MAC address. Make a note of the IP — you’ll need it shortly.
 
-### 2. Enable Docker on your NAS
-
-Open **Package Center** → search **Container Manager** → Install.
-
-### 3. Clone and configure
+### 2. Clone and configure
 
 ```bash
 git clone https://github.com/yourname/dieter.git
 cd dieter
 cp .env.example .env
-nano .env          # fill in DAIKIN_HOST, TZ, PORT
+nano .env
 ```
 
-Minimum `.env`:
+Minimum config:
 
 ```
 DAIKIN_HOST=192.168.1.42   # your Daikin's IP
-TZ=Pacific/Auckland
+TZ=Pacific/Auckland        # your timezone
 PORT=8080
 ```
 
-### 4. Deploy via SSH
+Full timezone list: [Wikipedia — tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
 
-SSH into your NAS and run:
+
+### 3. Start the container
 
 ```bash
-cd /volume1/docker/dieter   # or wherever you cloned it
 docker compose up -d --build
 ```
 
-The first build takes ~3 minutes while Node compiles the frontend.
+The first build takes a few minutes. After that, visit `http://<host-ip>:8080`.
 
-### 5. Open the app
+## Using Dieter
 
-Visit `http://<nas-ip>:8080` in your browser.
+Dieter runs in any modern browser on your home network — desktop, tablet, or phone. Point it at `http://<host-ip>:8080` and you‘re done.
 
-### 6. Install on your home screen
+On phones it’s best installed as a home screen app so it feels native rather than living in a browser tab.
 
-**iOS (Safari):**
-1. Open `http://<nas-ip>:8080` in Safari
-2. Tap the Share button → **Add to Home Screen**
-3. Tap **Add**
+**iOS (Safari):** Share → Add to Home Screen
 
-**Android (Chrome):**
-1. Open the URL in Chrome
-2. Tap the menu → **Add to Home screen** (or look for the install banner)
+**Android (Chrome):** Menu → Add to Home Screen
+
+### Remote access
+
+Dieter only listens on your local network. That‘s a feature, not a limitation — but it does mean you can’t reach it from outside your home without some extra plumbing. [Tailscale](https://tailscale.com) is the easiest way to sort this: install it on your phone and your Docker host, and your home network follows you everywhere.
 
 ## Updating
 
 ```bash
-cd /volume1/docker/dieter
 git pull
 docker compose up -d --build
 ```
 
-## Architecture
-
-```
-Browser / PWA
-      │  HTTP on LAN
-      ▼
-[Nginx :80]  ──── /api/* ──▶  [FastAPI :8000]  ──── HTTP ──▶  BRP15B61
-      │                              │
-      │                        APScheduler
-      │                        (cron jobs)
-      ▼                              │
-  React SPA                    SQLite /data/
-```
-
-- **Frontend** — React, served by Nginx, proxies `/api` to the backend
-- **Backend** — FastAPI + APScheduler (Python 3.12)
-- **Database** — SQLite at `/data/scheduler.db` (Docker volume; survives restarts)
-- **Daikin API** — local HTTP on `/skyfi/aircon/*` endpoints
-
-## API reference
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/status` | Current unit state |
-| POST | `/api/control` | Direct control `{power, mode, temperature}` |
-| GET | `/api/schedules` | List all schedules |
-| POST | `/api/schedules` | Create schedule |
-| PATCH | `/api/schedules/:id` | Update schedule |
-| DELETE | `/api/schedules/:id` | Delete schedule |
-
-### Schedule payloads
-
-Schedules no longer use a `label` field. Use `action` to choose behavior:
-
-- `setpoint` — turn unit on and apply `temperature` + `mode`
-- `off` — turn unit off; `temperature` and `mode` are optional/ignored
-
-Create setpoint schedule:
-
-```json
-{
-  "time": "07:00",
-  "days": ["mon", "tue", "wed", "thu", "fri"],
-  "action": "setpoint",
-  "temperature": 20,
-  "mode": "heat",
-  "enabled": true
-}
-```
-
-Create off schedule:
-
-```json
-{
-  "time": "22:30",
-  "days": ["sun", "mon", "tue", "wed", "thu"],
-  "action": "off",
-  "enabled": true
-}
-```
-
 ## Troubleshooting
 
-**"Unit unreachable"** — Check the `DAIKIN_HOST` in `.env` matches the unit's IP. Make sure your NAS and the Daikin are on the same network/VLAN.
+**“Unit unreachable”** — Check `DAIKIN_HOST` in `.env` matches the unit‘s IP. The host running Dieter and the Daikin unit need to be on the same network.
 
-**Schedules not firing** — Verify `TZ` in `.env` is set correctly. Check backend logs: `docker compose logs backend -f`.
+**Schedules not firing** — Make sure `TZ` is set correctly. Check logs with `docker compose logs backend -f`.
 
-**Frontend not loading** — Check `docker compose logs frontend`.
+**App not loading** — `docker compose logs frontend`
 
-## Timezone values
+## Security
 
-Common NZ/AU values for `.env`:
+Dieter has no authentication. Anyone on your network who knows the IP and port can control your heat pump.
 
-```
-TZ=Pacific/Auckland        # New Zealand
-TZ=Australia/Sydney
-TZ=Australia/Melbourne
-TZ=Australia/Brisbane
-TZ=Australia/Perth
-```
+That’s fine for most home setups — your LAN is presumably not full of people you distrust. But it‘s worth being aware of. Don’t expose port 8080 to the internet directly. 
 
-Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+There are a few things here which could be improved with additional layers of API keys, which if you’re forking this are fairly straight forward. The only real surface area though is “bad actor can control your heating” so your s**ts given may be low.
+
+## Credits
+
+Much respect and appreciation to [DRAMs Framer components](https://drams.framer.website/) by [@mrblackstudio](https://x.com/mrblackstudio) for the inspo on the UI controls
 
 ## License
 
